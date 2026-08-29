@@ -34,20 +34,24 @@ const ContentView = {
     else this._renderSaved(box);
   },
 
-  /* ---------- 晨报 ---------- */
+  /* ---------- 晨报：一键生成（自动抓行情+快讯，固定模板） ---------- */
   _renderMorning(box) {
     box.innerHTML = this._keyBanner() +
       '<div class="card">' +
-      '<div class="field"><label>今晨素材（把新闻标题、隔夜行情、公司资讯粘进来）</label>' +
-      '<textarea id="morningNews" rows="6" placeholder="例：\n· 美股三大指数收涨，纳指涨1.2%\n· 央行开展3000亿逆回购\n· 两部门发布XX产业支持政策\n· 国际油价涨2%"></textarea></div>' +
-      '<div class="row-btns"><button class="btn wide" id="genMorning">生成晨报</button></div>' +
+      '<div class="auto-line">📡 一键生成，无需输入：自动抓取 A股收盘 · 美股 · 港股 · 财经快讯，按券商标准模板（隔夜外盘→市场回顾→要闻速递→今日关注）出稿</div>' +
+      '<div class="field"><label>补充素材（选填：今天特别想提的事，自动抓取失败时也可把新闻粘这里手动生成）</label>' +
+      '<textarea id="morningNews" rows="3" placeholder="选填"></textarea></div>' +
+      '<div class="calc-note" id="morningStatus"></div>' +
+      '<div class="row-btns"><button class="btn wide" id="genMorning">⚡ 一键生成今日晨报</button></div>' +
       '<div class="field" id="morningOutWrap" style="display:none"><label>生成结果（可编辑）</label>' +
-      '<textarea id="morningOut" rows="10"></textarea></div>' +
+      '<textarea id="morningOut" rows="12"></textarea></div>' +
       '<div class="row-btns" id="morningActs" style="display:none">' +
       '<button class="btn ghost wide" id="copyMorning">复制</button>' +
+      '<button class="btn ghost wide" id="regenMorning">重新生成</button>' +
       '<button class="btn ghost wide" id="saveMorning">存入收藏</button></div>' +
       '</div>';
     $('#genMorning').addEventListener('click', () => this._genMorning());
+    $('#regenMorning').addEventListener('click', () => this._genMorning());
     $('#copyMorning').addEventListener('click', async () => {
       (await copyText($('#morningOut').value)) ? toast('已复制') : toast('复制失败，请长按文本手动复制', 'warn');
     });
@@ -60,19 +64,60 @@ const ContentView = {
     });
   },
 
+  _status(t) { const el = $('#morningStatus'); if (el) el.textContent = t; },
+
+  /* 组装素材：行情 + 快讯 + 用户补充 */
+  async _gatherMaterial() {
+    const manual = $('#morningNews').value.trim();
+    let markets = null, news = null, errors = [];
+    this._status('正在抓取最新行情…');
+    const pMarket = Quotes.fetchMarkets()
+      .then(d => { markets = d; this._status('行情已抓到，正在抓取财经快讯…'); })
+      .catch(() => { errors.push('行情'); this._status('行情抓取失败，正在抓取快讯…'); });
+    const pNews = News.fetchNews(28).then(d => { news = d; }).catch(() => { errors.push('快讯'); });
+    await Promise.all([pMarket.catch(() => {}), pNews.catch(() => {})]);
+
+    const parts = [];
+    parts.push('今天是 ' + longDate() + '。以下是自动抓取的最新素材：');
+
+    if (markets) {
+      const fmt = q => q.price.toFixed(2) + '（' + (q.pct >= 0 ? '+' : '') + q.pct.toFixed(2) + '%）';
+      parts.push('【行情数据】');
+      if (markets.cn.length) parts.push('A股收盘：' + markets.cn.map(q => q.name + ' ' + fmt(q)).join('，') + '。');
+      if (markets.turnoverYi != null) parts.push('沪深两市成交额约 ' + (markets.turnoverYi / 10000).toFixed(2) + ' 万亿元。');
+      if (markets.us.length) parts.push('美股最新：' + markets.us.map(q => q.name + ' ' + fmt(q)).join('，') + '。');
+      if (markets.hk.length) parts.push('港股：' + markets.hk.map(q => q.name + ' ' + fmt(q)).join('，') + '。');
+    }
+    if (news && news.length) {
+      parts.push('【最新财经快讯】（时间为今日/最近发出）');
+      news.slice(0, 25).forEach((n, i) => parts.push((i + 1) + '. ' + (n.time ? '[' + n.time + '] ' : '') + n.text));
+    }
+    if (manual) parts.push('【投顾补充（重要，优先采用）】\n' + manual);
+    if (!markets && !news && !manual) {
+      throw new Error('行情和快讯都抓取失败，且没有手动素材。请检查网络后重试，或把新闻粘贴到补充素材里再生成。');
+    }
+    if (errors.length) parts.push('（注意：' + errors.join('和') + '自动抓取失败，相关部分请勿凭空编写）');
+    return parts.join('\n');
+  },
+
   async _genMorning() {
     if (this.busy) return;
-    const news = $('#morningNews').value.trim();
-    if (!news) { toast('请先粘贴今晨素材', 'warn'); return; }
     if (!Store.db.settings.ai.key) { toast('请先在设置中配置 AI Key', 'warn'); location.hash = '#/settings'; return; }
     this._setBusy($('#genMorning'), true);
+    this._status('正在组装素材…');
     try {
-      const r = await AI.genMorning(news);
+      const material = await this._gatherMaterial();
+      this._status('素材就绪，AI 撰写中（约10-30秒）…');
+      const r = await AI.genMorning(material);
       $('#morningOut').value = r.text;
       $('#morningOutWrap').style.display = '';
       $('#morningActs').style.display = '';
-      toast('生成完成，用时 ' + Math.round(r.ms / 1000) + ' 秒');
-    } catch (e) { this._aiError(e); }
+      this._status('生成完成 ✓ 用时 ' + Math.round(r.ms / 1000) + ' 秒');
+      toast('晨报已生成');
+    } catch (e) {
+      this._status('');
+      this._aiError(e);
+    }
     this._setBusy($('#genMorning'), false);
   },
 
