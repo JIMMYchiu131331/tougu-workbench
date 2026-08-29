@@ -37,6 +37,7 @@ const ContentView = {
   /* ---------- 晨报：一键生成（自动抓行情+快讯，固定模板） ---------- */
   _renderMorningTab(box) {
     box.innerHTML = this._keyBanner() +
+      '<div class="card" id="cloudBrief" style="display:none"></div>' +
       '<div class="card">' +
       '<div class="auto-line">📡 一键生成，无需输入：自动抓取 A股收盘 · 美股 · 港股 · 财经快讯，按券商标准模板（隔夜外盘→市场回顾→要闻速递→今日关注）出稿</div>' +
       '<div class="field"><label>补充素材（选填：今天特别想提的事，自动抓取失败时也可把新闻粘这里手动生成）</label>' +
@@ -62,6 +63,7 @@ const ContentView = {
       });
       Store.save(); toast('已存入收藏库');
     });
+    this._checkCloudBrief();
   },
 
   _status(t) { const el = $('#morningStatus'); if (el) el.textContent = t; },
@@ -165,6 +167,12 @@ const ContentView = {
     if (this.busy) return;
     if (!Store.db.settings.ai.key) { this._aiError({ code: 'NO_KEY' }); return; }
     this._setBusy($('#genMorning'), true);
+    this._keepAwake(true);
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+      const s = Math.round((Date.now() - t0) / 1000);
+      this._status('生成中… 已等待 ' + s + ' 秒（生成期间请保持本页面在前台）');
+    }, 2000);
     let markets = null;
     try {
       const gathered = await this._gatherMaterial();
@@ -180,7 +188,57 @@ const ContentView = {
       this._status('');
       this._aiError(e);
     }
+    clearInterval(timer);
+    this._keepAwake(false);
     this._setBusy($('#genMorning'), false);
+  },
+
+  /* 生成期间保持屏幕常亮（支持则生效，避免锁屏中断） */
+  async _keepAwake(on) {
+    try {
+      if (on && navigator.wakeLock && !this._wl) {
+        this._wl = await navigator.wakeLock.request('screen');
+        this._wl.addEventListener('release', () => { this._wl = null; });
+      } else if (!on && this._wl) {
+        await this._wl.release();
+        this._wl = null;
+      }
+    } catch (e) { /* 不支持就忽略 */ }
+  },
+
+  /* ---------- 云端晨报（GitHub Actions 每天自动生成，打开即看） ---------- */
+  _cloudCfg() {
+    const s = Store.db.settings.sync || {};
+    return (s.token && s.gistId) ? s : null;
+  },
+
+  async _checkCloudBrief() {
+    const box = $('#cloudBrief');
+    if (!box) return;
+    const cfg = this._cloudCfg();
+    if (!cfg) { box.style.display = 'none'; return; }
+    try {
+      const r = await fetch((cfg.endpoint || 'https://api.github.com').replace(/\/+$/, '') + '/gists/' + cfg.gistId, {
+        headers: { 'Authorization': 'Bearer ' + cfg.token, 'Accept': 'application/vnd.github+json' }
+      });
+      const g = await r.json();
+      const raw = g.files && g.files['morning-latest.json'] && g.files['morning-latest.json'].content;
+      if (!raw) { box.style.display = 'none'; return; }
+      const d = JSON.parse(raw);
+      const today = todayStr();
+      if (d.date !== today) { box.style.display = 'none'; return; }
+      box.style.display = '';
+      box.innerHTML = '<div class="auto-line">☁️ 今日晨报已由云端定时任务自动生成（' + esc((d.generatedAt || '').replace('T', ' ').slice(11, 16)) +
+        ' UTC），无需等待，直接载入。</div>' +
+        '<button class="btn wide" id="loadCloudBtn">📥 载入今日晨报</button>';
+      $('#loadCloudBtn').addEventListener('click', () => {
+        $('#morningOut').value = d.text;
+        $('#morningOutWrap').style.display = '';
+        $('#morningActs').style.display = '';
+        toast('已载入云端晨报');
+        box.style.display = 'none';
+      });
+    } catch (e) { box.style.display = 'none'; }
   },
 
   /* ---------- 话术 ---------- */
