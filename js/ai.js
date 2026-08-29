@@ -35,6 +35,25 @@ const AI = (() => {
     return t.trim();
   }
 
+  function httpError(status, text) {
+    const friendly = friendlyHttpError(status, text);
+    const e = new Error(friendly);
+    e.http = true;
+    return e;
+  }
+
+  function friendlyHttpError(status, text) {
+    let detail = '';
+    try {
+      const d = JSON.parse(text);
+      detail = (d.error && d.error.message) || d.message || '';
+    } catch (e) { detail = (text || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 120); }
+    if (status === 401) return 'API Key 无效或已过期，请到「设置」重新粘贴 Key。' + (detail ? '（' + detail + '）' : '');
+    if (status === 429) return '调用频率或额度超限，稍后再试。' + (detail ? '（' + detail + '）' : '');
+    if (status === 400 || status === 404) return '接口地址或模型名称可能有误，请检查设置。' + (detail ? '（' + detail + '）' : '');
+    return 'HTTP ' + status + (detail ? '：' + detail : '');
+  }
+
   async function chat(messages) {
     const cfg = Store.db.settings.ai;
     if (!cfg.key) {
@@ -53,27 +72,36 @@ const AI = (() => {
       stream: false
     };
     const t0 = Date.now();
+    let networkErr = null;
+
+    // 第一通道：浏览器直连大模型接口（智谱已验证支持跨域）
     try {
       const r = await fetch(cfg.endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-      if (!r.ok) {
-        const txt = await r.text();
-        throw new Error('HTTP ' + r.status + '：' + txt.slice(0, 200));
+      const txt = await r.text();
+      if (r.ok) {
+        return { text: parseResp(JSON.parse(txt)), ms: Date.now() - t0, viaProxy: false };
       }
-      return { text: parseResp(await r.json()), ms: Date.now() - t0, viaProxy: false };
-    } catch (e1) {
-      if (e1.code === 'NO_KEY') throw e1;
-      // 直连失败（多为浏览器跨域限制），尝试走本地服务器的代理通道
-      try {
-        const r = await fetch('/api/proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: cfg.endpoint, headers, body })
-        });
-        if (!r.ok) throw new Error((await r.text()).slice(0, 300));
+      throw httpError(r.status, txt); // 服务器有明确回应：直接报真实原因，不走降级
+    } catch (e) {
+      if (e && e.http) throw e;
+      networkErr = e; // 网络级失败（断网/被跨域拦截）才尝试代理通道
+    }
+
+    // 第二通道：仅当通过「启动.bat」本地打开时才存在 /api/proxy
+    try {
+      const r = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: cfg.endpoint, headers, body })
+      });
+      if (r.ok) {
         return { text: parseResp(await r.json()), ms: Date.now() - t0, viaProxy: true };
-      } catch (e2) {
-        throw new Error('AI 接口调用失败：' + (e2.message || e1.message));
       }
+      throw networkErr; // 静态托管上没有代理通道（404/405），回归直连的真实错误
+    } catch (e) {
+      if (e && e.http) throw e;
+      throw new Error('网络请求失败（可能当前网络无法直连大模型，或已被跨域拦截）。' +
+        '建议：①检查手机网络后重试 ②到「设置」点「测试连接」看具体原因');
     }
   }
 
