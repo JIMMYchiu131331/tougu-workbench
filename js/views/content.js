@@ -78,13 +78,13 @@ const ContentView = {
 
   /* ---------- 话术 ---------- */
   _renderScript(box) {
-    const scenarios = ['市场大跌安抚', '市场大涨提醒止盈/理性', '新产品介绍', '账户年度回顾', '催办业务提醒', '客户生日/节日问候', '失联客户唤醒', '定投坚持提醒'];
-    const products = ['股票', '偏股型基金', '债券/固收类产品', '混合型基金', 'ETF/指数基金', '投顾签约服务', '两融业务', '新客理财'];
+    const scenarios = ['客户生日/节日问候', '失联客户唤醒', '市场大跌安抚', '市场大涨提醒止盈/理性', '新产品介绍', '账户年度回顾', '催办业务提醒', '定投坚持提醒'];
+    const products = ['不涉及产品（纯维护/问候）', '股票', '偏股型基金', '债券/固收类产品', '混合型基金', 'ETF/指数基金', '投顾签约服务', '两融业务', '新客理财'];
     box.innerHTML = this._keyBanner() +
       '<div class="card">' +
       '<div class="field"><label>沟通场景</label><select id="scScenario">' +
       scenarios.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
-      '<div class="field"><label>涉及产品类型</label><select id="scProduct">' +
+      '<div class="field"><label>涉及产品类型（选"不涉及"则纯做关系维护）</label><select id="scProduct">' +
       products.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
       '<div class="field"><label>客户风险等级（选填）</label><select id="scRisk"><option value="">不指定</option>' +
       ['C1', 'C2', 'C3', 'C4', 'C5'].map(r => '<option>' + r + '</option>').join('') + '</select></div>' +
