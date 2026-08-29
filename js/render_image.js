@@ -140,7 +140,7 @@ const MorningImage = (() => {
       y += 8;
     }
     if (s.markets && (s.markets.cn || []).length) {
-      section('🇨🇳', '昨日A股');
+      section('📈', '昨日A股');
       marketRows(s.markets.cn);
       if (s.markets.turnoverYi != null) {
         ctx.font = '24px ' + FONT;
