@@ -24,7 +24,7 @@ const HomeView = {
             (daysUntil(c.nextFollow) < 0 ? ' overdue' : '') + '"></span>' +
             '<span class="todo-name">' + esc(c.name) + '</span>' +
             '<span class="todo-sub">' + (daysUntil(c.nextFollow) < 0 ? '已逾期 ' : '今天跟进') +
-            ' · ' + esc(c.riskLevel) + '</span></div>').join('') : '') +
+            ' · ' + esc((c.types || [])[0] || '客户') + '</span></div>').join('') : '') +
           birthdays.map(c => {
             const d = daysUntilBirthday(c.birthday);
             return '<div class="todo-row" data-cid="' + c.id + '"><span class="todo-dot bday"></span>' +
