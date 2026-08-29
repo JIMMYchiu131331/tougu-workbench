@@ -102,7 +102,7 @@ const ContentView = {
 
   async _genMorning() {
     if (this.busy) return;
-    if (!Store.db.settings.ai.key) { toast('请先在设置中配置 AI Key', 'warn'); location.hash = '#/settings'; return; }
+    if (!Store.db.settings.ai.key) { this._aiError({ code: 'NO_KEY' }); return; }
     this._setBusy($('#genMorning'), true);
     this._status('正在组装素材…');
     try {
@@ -156,7 +156,7 @@ const ContentView = {
 
   async _genScript() {
     if (this.busy) return;
-    if (!Store.db.settings.ai.key) { toast('请先在设置中配置 AI Key', 'warn'); location.hash = '#/settings'; return; }
+    if (!Store.db.settings.ai.key) { this._aiError({ code: 'NO_KEY' }); return; }
     this._setBusy($('#genScript'), true);
     try {
       const r = await AI.genScript($('#scScenario').value, $('#scProduct').value, $('#scRisk').value);
@@ -208,7 +208,18 @@ const ContentView = {
   },
 
   _aiError(e) {
-    if (e.code === 'NO_KEY') { toast('请先配置 AI Key', 'warn'); location.hash = '#/settings'; return; }
+    if (e.code === 'NO_KEY') {
+      modal({
+        title: '还没有保存 API Key',
+        body: '<p class="modal-msg">粘贴 Key 后必须点「<b>保存</b>」或「<b>测试连接</b>」才会生效（测试会自动保存）。</p>' +
+          '<p class="modal-msg sub">当前状态：设置里的 Key 是空的，所以无法生成。</p>',
+        actions: [
+          { text: '取消', cls: 'ghost' },
+          { text: '去设置', cls: 'primary', onClick: close => { close(); location.hash = '#/settings'; } }
+        ]
+      });
+      return;
+    }
     modal({
       title: '生成失败',
       body: '<p class="modal-msg">' + esc(e.message || String(e)) + '</p>' +
