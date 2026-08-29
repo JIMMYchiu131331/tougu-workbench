@@ -1,0 +1,23 @@
+name: daily-morning-brief
+
+on:
+  schedule:
+    # UTC 23:15 = 北京时间 07:15（GitHub 定时任务可能有 10-30 分钟延迟）
+    - cron: '15 23 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 生成今日晨报并写入 Gist
+        run: python tools/generate_daily.py
+        env:
+          BIGMODEL_KEY: ${{ secrets.BIGMODEL_KEY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          MODEL: ${{ vars.MORNING_MODEL }}
