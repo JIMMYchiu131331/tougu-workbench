@@ -5,7 +5,6 @@ const App = (() => {
   const routes = {
     home: HomeView,
     clients: ClientsView,
-    suit: SuitView,
     content: ContentView,
     tools: ToolsView,
     settings: SettingsView
@@ -49,7 +48,6 @@ const App = (() => {
     $('#tabbar').innerHTML =
       '<button data-tab="home" class="active"><span class="tab-ico">🏠</span>首页</button>' +
       '<button data-tab="clients"><span class="tab-ico">👥</span>客户</button>' +
-      '<button data-tab="suit"><span class="tab-ico">✅</span>适当性</button>' +
       '<button data-tab="content"><span class="tab-ico">💬</span>话术</button>' +
       '<button data-tab="tools"><span class="tab-ico">🧰</span>工具</button>';
     $$('#tabbar button').forEach(b => b.addEventListener('click', () => {
