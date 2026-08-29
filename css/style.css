@@ -178,6 +178,10 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--tx
 .client-card { padding: 12px 14px; }
 .cc-top { display: flex; align-items: center; gap: 8px; }
 .cc-name { font-size: 16px; font-weight: 700; flex: 1; }
+.cc-assets { font-size: 13px; font-weight: 700; color: #8A6A2F; background: #F7F0DF; border-radius: 6px; padding: 2px 8px; }
+.type-badge {
+  font-size: 11px; font-weight: 700; border-radius: 6px; padding: 3px 8px;
+}
 .cc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .tag {
   font-size: 11px; color: var(--pri); background: #EEF3FC;
@@ -193,14 +197,19 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--tx
 .cc-foot .urgent { color: var(--up); font-weight: 600; }
 .cc-foot .soon { color: var(--warn); }
 
-.risk-badge {
-  font-size: 11px; font-weight: 700; border-radius: 6px; padding: 3px 8px;
+/* ---------- KYC 表单 ---------- */
+.form-sec {
+  font-size: 12px; color: var(--pri); font-weight: 700;
+  margin: 16px 0 8px; padding-top: 10px; border-top: 1px dashed var(--line);
 }
-.risk-badge.rC1 { background: #E9F7F0; color: #0E9B57; }
-.risk-badge.rC2 { background: #EAF3FB; color: #2274C4; }
-.risk-badge.rC3 { background: #EEF3FC; color: #1546A0; }
-.risk-badge.rC4 { background: #FBF1E3; color: #B96A00; }
-.risk-badge.rC5 { background: #FDECEC; color: #D2373F; }
+.chip-sel-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.fchip {
+  border: 1px solid #D8DEE9; background: #fff; color: var(--sub);
+  border-radius: 999px; padding: 6px 14px; font-size: 13px;
+}
+.fchip.active {
+  background: var(--pri); border-color: var(--pri); color: #fff; font-weight: 600;
+}
 
 .fab {
   position: fixed; right: calc(50% - 260px + 18px); bottom: calc(76px + env(safe-area-inset-bottom));
