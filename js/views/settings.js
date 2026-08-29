@@ -20,6 +20,7 @@ const SettingsView = {
       '</datalist></div>' +
       '<div class="field"><label>API Key</label>' +
       '<input id="aiKey" type="password" value="' + esc(ai.key) + '" placeholder="粘贴你的 Key，仅保存在本机"></div>' +
+      '<div class="calc-note">当前状态：' + (ai.key ? '✓ 已配置 Key（' + esc(ai.key.slice(0, 6)) + '…）' : '✗ 还没有保存 Key —— 粘贴后必须点「保存」或「测试连接」才算数') + '</div>' +
       '<div class="row-btns">' +
       '<button class="btn ghost wide" id="aiTest">测试连接</button>' +
       '<button class="btn wide" id="aiSave">保存</button></div>' +
@@ -88,23 +89,22 @@ const SettingsView = {
     });
 
     $('#aiTest').addEventListener('click', async () => {
-      // 先用当前输入框的值测试（不保存也能测）
-      const backup = Object.assign({}, Store.db.settings.ai);
-      const ep = $('#aiEndpoint').value.trim();
+      const ep = ($('#aiEndpoint').value.trim() || '').replace(/\/+$/, '');
       if (!ep.startsWith('http')) { toast('接口地址要以 http 开头', 'warn'); return; }
-      Store.db.settings.ai = {
-        endpoint: ep, model: $('#aiModel').value.trim() || 'glm-4-flash', key: $('#aiKey').value.trim()
-      };
+      const cfg = { endpoint: ep, model: $('#aiModel').value.trim() || 'glm-4-flash', key: $('#aiKey').value.trim() };
+      if (!cfg.key) { toast('请先粘贴 API Key', 'warn'); return; }
+      Store.db.settings.ai = cfg; // 测试即保存，避免“粘了没存”的坑
+      Store.save();
       const btn = $('#aiTest');
       btn.disabled = true; btn.textContent = '测试中…';
       try {
         const r = await AI.test();
-        toast('连接正常 ✓（' + Math.round(r.ms / 1000) + 's）');
+        toast('已保存 ✓ 连接正常（' + Math.round(r.ms / 1000) + 's）');
       } catch (e) {
-        toast('连接失败：' + (e.message || '').slice(0, 40), 'warn');
+        toast('已保存，但连接失败：' + (e.message || '').slice(0, 60), 'warn');
       }
       btn.disabled = false; btn.textContent = '测试连接';
-      Store.db.settings.ai = backup; // 测试不落盘，等用户点保存
+      this.render(root); // 刷新 Key 状态显示
     });
 
     /* ---------- 云同步 ---------- */
