@@ -29,13 +29,13 @@ const ContentView = {
 
   _renderTab() {
     const box = $('#contentBody');
-    if (this.tab === 'morning') this._renderMorning(box);
+    if (this.tab === 'morning') this._renderMorningTab(box);
     else if (this.tab === 'script') this._renderScript(box);
     else this._renderSaved(box);
   },
 
   /* ---------- 晨报：一键生成（自动抓行情+快讯，固定模板） ---------- */
-  _renderMorning(box) {
+  _renderMorningTab(box) {
     box.innerHTML = this._keyBanner() +
       '<div class="card">' +
       '<div class="auto-line">📡 一键生成，无需输入：自动抓取 A股收盘 · 美股 · 港股 · 财经快讯，按券商标准模板（隔夜外盘→市场回顾→要闻速递→今日关注）出稿</div>' +
