@@ -49,6 +49,7 @@ const AI = (() => {
       detail = (d.error && d.error.message) || d.message || '';
     } catch (e) { detail = (text || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 120); }
     if (status === 401) return 'API Key 无效或已过期，请到「设置」重新粘贴 Key。' + (detail ? '（' + detail + '）' : '');
+    if (status === 405) return '接口地址不对（405）：通常是末尾多了一个 / 或路径不完整，请到「设置」检查接口地址。';
     if (status === 429) return '调用频率或额度超限，稍后再试。' + (detail ? '（' + detail + '）' : '');
     if (status === 400 || status === 404) return '接口地址或模型名称可能有误，请检查设置。' + (detail ? '（' + detail + '）' : '');
     return 'HTTP ' + status + (detail ? '：' + detail : '');
