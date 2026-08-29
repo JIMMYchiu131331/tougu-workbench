@@ -1,4 +1,4 @@
-/* 客户档案：列表/搜索/筛选 + 详情 + 增改 + 跟进记录 */
+/* 客户档案：KYC 视角管理（业务类型/偏好/资产/跟进），列表/搜索/类型筛选 */
 'use strict';
 
 const ClientsView = {
@@ -6,15 +6,26 @@ const ClientsView = {
   pendingOpen: null,
   pendingAdd: false,
   keyword: '',
-  riskFilter: '',
+  typeFilter: '',
+
+  TYPES: ['两融', 'ETF', '私募', '公募', '期权', '新客'],
+  PREFS: ['短线', '波段', '长线定投', '稳健理财', '打新'],
+  TYPE_COLORS: {
+    '两融': ['#FDECEC', '#D2373F'],
+    'ETF': ['#EAF3FB', '#2274C4'],
+    '私募': ['#F3EEFB', '#6B4FB6'],
+    '公募': ['#E9F7F0', '#0E9B57'],
+    '期权': ['#FBF1E3', '#B96A00'],
+    '新客': ['#E6F7F6', '#0E8F8C']
+  },
 
   render(root) {
     root.innerHTML =
       '<div class="search-bar"><input id="clientSearch" type="search" placeholder="搜索姓名 / 标签 / 备注" value="' + esc(this.keyword) + '">' +
       '<button class="btn small" id="addClientBtn">＋ 新增</button></div>' +
-      '<div class="chip-row" id="riskChips">' +
-      ['', 'C1', 'C2', 'C3', 'C4', 'C5'].map(r =>
-        '<button class="chip' + (this.riskFilter === r ? ' active' : '') + '" data-r="' + r + '">' + (r || '全部') + '</button>'
+      '<div class="chip-row" id="typeChips">' +
+      [''].concat(this.TYPES).map(t =>
+        '<button class="chip' + (this.typeFilter === t ? ' active' : '') + '" data-t="' + esc(t) + '">' + (t || '全部') + '</button>'
       ).join('') + '</div>' +
       '<div id="clientList"></div>' +
       '<button class="fab" id="fabAdd">＋</button>';
@@ -23,9 +34,9 @@ const ClientsView = {
       this.keyword = e.target.value.trim();
       this._renderList();
     });
-    $$('#riskChips .chip').forEach(c => c.addEventListener('click', () => {
-      this.riskFilter = c.dataset.r;
-      $$('#riskChips .chip').forEach(x => x.classList.toggle('active', x === c));
+    $$('#typeChips .chip').forEach(c => c.addEventListener('click', () => {
+      this.typeFilter = c.dataset.t;
+      $$('#typeChips .chip').forEach(x => x.classList.toggle('active', x === c));
       this._renderList();
     }));
     $('#addClientBtn').addEventListener('click', () => this._edit(null));
@@ -43,20 +54,26 @@ const ClientsView = {
     }
   },
 
+  _typesOf(c) { return c.types || []; },
+  _matchType(c) { return !this.typeFilter || this._typesOf(c).indexOf(this.typeFilter) > -1; },
+
+  _typeBadge(t) {
+    const col = this.TYPE_COLORS[t] || ['#EEF3FC', '#1546A0'];
+    return '<span class="type-badge" style="background:' + col[0] + ';color:' + col[1] + '">' + esc(t) + '</span>';
+  },
+
   _renderList() {
     const box = $('#clientList');
     const kw = this.keyword;
     let list = Store.db.clients.slice();
-    if (this.riskFilter) list = list.filter(c => c.riskLevel === this.riskFilter);
+    list = list.filter(c => this._matchType(c));
     if (kw) {
       list = list.filter(c =>
         (c.name || '').includes(kw) || (c.tags || []).some(t => t.includes(kw)) ||
-        (c.note || '').includes(kw) || (c.holdings || '').includes(kw));
+        (c.note || '').includes(kw) || (c.holdings || '').includes(kw) ||
+        (c.types || []).some(t => t.includes(kw)));
     }
-    const rank = c => {
-      const d = c.nextFollow ? daysUntil(c.nextFollow) : 9999;
-      return d;
-    };
+    const rank = c => (c.nextFollow ? daysUntil(c.nextFollow) : 9999);
     list.sort((a, b) => rank(a) - rank(b));
 
     if (!list.length) {
@@ -64,6 +81,7 @@ const ClientsView = {
       return;
     }
     box.innerHTML = list.map(c => {
+      const types = this._typesOf(c);
       const d = daysUntil(c.nextFollow);
       let followTxt = '未设置跟进';
       let followCls = '';
@@ -75,9 +93,9 @@ const ClientsView = {
       }
       return '<div class="card client-card" data-id="' + c.id + '">' +
         '<div class="cc-top"><span class="cc-name">' + esc(c.name) + '</span>' +
-        '<span class="risk-badge r' + c.riskLevel + '">' + esc(c.riskLevel || 'C3') + '</span></div>' +
-        '<div class="cc-tags">' + (c.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('') +
-        (c.assets ? '<span class="tag gold">资产 ' + esc(c.assets) + '万</span>' : '') + '</div>' +
+        (c.assets ? '<span class="cc-assets">' + esc(c.assets) + ' 万</span>' : '') + '</div>' +
+        (types.length ? '<div class="cc-tags">' + types.map(t => this._typeBadge(t)).join('') +
+          (c.prefs || []).map(p => '<span class="tag">' + esc(p) + '</span>').join('') + '</div>' : '') +
         '<div class="cc-hold">' + esc(c.holdings || '暂无持仓记录') + '</div>' +
         '<div class="cc-foot"><span class="' + followCls + '">' + followTxt + '</span>' +
         (c.lastContact ? '<span class="cc-last">最近联系 ' + esc(c.lastContact) + '</span>' : '') + '</div></div>';
@@ -86,31 +104,36 @@ const ClientsView = {
       el.addEventListener('click', () => this._detail(el.dataset.id)));
   },
 
-  _riskSelect(val) {
-    return '<select name="riskLevel">' +
-      ['C1', 'C2', 'C3', 'C4', 'C5'].map(r =>
-        '<option value="' + r + '"' + (val === r ? ' selected' : '') + '>' + r + ' ' +
-        ({ C1: '保守型', C2: '谨慎型', C3: '稳健型', C4: '积极型', C5: '激进型' }[r]) + '</option>').join('') +
-      '</select>';
+  /* ---------- KYC 表单 ---------- */
+  _chipRow(name, options, selected) {
+    return '<div class="chip-sel-row" data-name="' + name + '">' +
+      options.map(o => '<button type="button" class="fchip' +
+        ((selected || []).indexOf(o) > -1 ? ' active' : '') + '" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') +
+      '</div>';
   },
 
   _formBody(c) {
-    return [
-      ['name', '姓名 *', 'text', c ? c.name : '', '客户称呼'],
-      ['phone', '手机号', 'tel', c ? c.phone : '', '选填'],
-      ['riskLevel', '风险承受能力', null, c ? c.riskLevel : 'C3', null, this._riskSelect(c ? c.riskLevel : 'C3')],
-      ['assets', '资产规模（万元）', 'number', c && c.assets != null ? c.assets : '', '如 86'],
-      ['birthday', '生日（MM-DD）', 'text', c ? c.birthday : '', '如 09-05，首页会提醒'],
-      ['nextFollow', '下次跟进日期', 'date', c ? c.nextFollow : '', null],
-      ['tags', '标签（逗号分隔）', 'text', c ? (c.tags || []).join(',') : '', '如 稳健增值,基金'],
-      ['holdings', '持仓概况', 'text', c ? c.holdings : '', '如 偏股混合60%、债券30%'],
-      ['note', '备注', 'textarea', c ? c.note : '', '偏好、家庭、沟通习惯等']
-    ].map(f => {
-      const [name, label, type, val, ph, custom] = f;
-      if (custom) return '<div class="field"><label>' + label + '</label>' + custom + '</div>';
-      if (type === 'textarea') return '<div class="field"><label>' + label + '</label><textarea name="' + name + '" rows="2" placeholder="' + esc(ph || '') + '">' + esc(val || '') + '</textarea></div>';
-      return '<div class="field"><label>' + label + '</label><input name="' + name + '" type="' + type + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></div>';
-    }).join('');
+    const sec = t => '<div class="form-sec">' + t + '</div>';
+    const f = (name, label, type, val, ph) =>
+      '<div class="field"><label>' + label + '</label><input name="' + name + '" type="' + type + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></div>';
+    return sec('基本信息') +
+      '<div class="field-row">' + f('name', '姓名 *', 'text', c ? c.name : '', '客户称呼') +
+      f('phone', '手机号', 'tel', c ? c.phone : '') + '</div>' +
+      '<div class="field-row">' + f('birthday', '生日（MM-DD）', 'text', c ? c.birthday : '', '09-05，到期自动提醒') +
+      f('nextFollow', '下次跟进', 'date', c ? c.nextFollow : '') + '</div>' +
+      sec('业务类型（多选，用于分类筛选和精准营销）') +
+      this._chipRow('types', this.TYPES, c ? c.types : []) +
+      sec('投资偏好（多选，决定沟通风格）') +
+      this._chipRow('prefs', this.PREFS, c ? c.prefs : []) +
+      sec('资产与持仓') +
+      '<div class="field-row">' + f('assets', '资产规模（万元）', 'number', c && c.assets != null ? c.assets : '', '如 86') +
+      f('tags', '自定义标签', 'text', c ? (c.tags || []).join(',') : '', '逗号分隔') + '</div>' +
+      f('holdings', '持仓概况', 'text', c ? c.holdings : '', '如 两融仓位6成、ETF 30万') +
+      '<div class="field"><label>备注</label><textarea name="note" rows="2" placeholder="偏好、家庭、沟通习惯等">' + esc(c ? c.note : '') + '</textarea></div>';
+  },
+
+  _collectChips(name) {
+    return $$('.chip-sel-row[data-name="' + name + '"] .fchip.active').map(el => el.dataset.v);
   },
 
   _saveFromForm(close, id) {
@@ -119,7 +142,8 @@ const ClientsView = {
     const data = {
       name,
       phone: fieldVal(document, 'phone'),
-      riskLevel: fieldVal(document, 'riskLevel') || 'C3',
+      types: this._collectChips('types'),
+      prefs: this._collectChips('prefs'),
       assets: fieldVal(document, 'assets') ? Number(fieldVal(document, 'assets')) : null,
       birthday: fieldVal(document, 'birthday'),
       nextFollow: fieldVal(document, 'nextFollow'),
@@ -132,9 +156,7 @@ const ClientsView = {
       Object.assign(c, data);
       toast('已保存');
     } else {
-      Store.db.clients.unshift(Object.assign({
-        id: uid(), lastContact: '', log: []
-      }, data));
+      Store.db.clients.unshift(Object.assign({ id: uid(), lastContact: '', log: [] }, data));
       toast('已新增客户「' + name + '」');
     }
     Store.save();
@@ -144,28 +166,31 @@ const ClientsView = {
 
   _edit(id) {
     const c = id ? Store.db.clients.find(x => x.id === id) : null;
-    modal({
-      title: c ? '编辑客户' : '新增客户',
+    const m = modal({
+      title: c ? '客户 KYC · ' + c.name : '新增客户 KYC',
       body: this._formBody(c),
       actions: [
         { text: '取消', cls: 'ghost' },
         { text: '保存', cls: 'primary', onClick: close => this._saveFromForm(close, id) }
       ]
     });
+    $$('.fchip', m.overlay).forEach(b => b.addEventListener('click', () => b.classList.toggle('active')));
   },
 
   _detail(id) {
     const c = Store.db.clients.find(x => x.id === id);
     if (!c) return;
+    const types = this._typesOf(c);
     const body =
+      '<div class="cc-tags" style="margin-bottom:10px">' +
+      types.map(t => this._typeBadge(t)).join('') +
+      (c.prefs || []).map(p => '<span class="tag">' + esc(p) + '</span>').join('') + '</div>' +
       '<div class="detail-grid">' +
-      '<div><span class="dg-k">风险等级</span><span class="risk-badge r' + c.riskLevel + '">' + esc(c.riskLevel) + '</span></div>' +
-      '<div><span class="dg-k">资产</span>' + (c.assets ? esc(c.assets) + ' 万' : '--') + '</div>' +
-      '<div><span class="dg-k">电话</span>' + (c.phone ? '<a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a>' : '--') + '</div>' +
+      '<div><span class="dg-k">资产规模</span>' + (c.assets ? esc(c.assets) + ' 万' : '--') + '</div>' +
+      '<div><span class="dg-k">手机号</span>' + (c.phone ? '<a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a>' : '--') + '</div>' +
       '<div><span class="dg-k">生日</span>' + (c.birthday ? esc(c.birthday) : '--') + '</div>' +
       '<div><span class="dg-k">下次跟进</span>' + (c.nextFollow ? esc(c.nextFollow) : '--') + '</div>' +
       '<div><span class="dg-k">最近联系</span>' + (c.lastContact ? esc(c.lastContact) : '--') + '</div></div>' +
-      (c.tags && c.tags.length ? '<div class="cc-tags" style="margin-top:10px">' + c.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>' : '') +
       '<div class="dg-block"><b>持仓概况</b>' + esc(c.holdings || '暂无') + '</div>' +
       '<div class="dg-block"><b>备注</b>' + esc(c.note || '暂无') + '</div>' +
       '<div class="dg-block"><b>跟进记录</b>' +
