@@ -48,11 +48,13 @@ const ContentView = {
       '<textarea id="morningOut" rows="12"></textarea></div>' +
       '<div class="row-btns" id="morningActs" style="display:none">' +
       '<button class="btn ghost wide" id="copyMorning">复制</button>' +
-      '<button class="btn ghost wide" id="regenMorning">重新生成</button>' +
-      '<button class="btn ghost wide" id="saveMorning">存入收藏</button></div>' +
+      '<button class="btn ghost wide" id="imgMorning">🖼 图片</button>' +
+      '<button class="btn ghost wide" id="saveMorning">收藏</button>' +
+      '<button class="btn ghost wide" id="regenMorning">重新生成</button></div>' +
       '</div>';
     $('#genMorning').addEventListener('click', () => this._genMorning());
     $('#regenMorning').addEventListener('click', () => this._genMorning());
+    $('#imgMorning').addEventListener('click', () => this._showImage());
     $('#copyMorning').addEventListener('click', async () => {
       (await copyText($('#morningOut').value)) ? toast('已复制') : toast('复制失败，请长按文本手动复制', 'warn');
     });
@@ -180,6 +182,7 @@ const ContentView = {
       this._status('素材就绪（行情✓' + (gathered.news ? ' 快讯' + gathered.news.length + '条✓' : '') + '），AI 撰写中…');
       const r = await AI.genMorning(gathered.text);
       $('#morningOut').value = this._renderMorning(markets, r.data, r.raw);
+      this._lastBrief = { markets, data: r.data, raw: r.raw, date: todayStr() };
       $('#morningOutWrap').style.display = '';
       $('#morningActs').style.display = '';
       this._status('生成完成 ✓ 用时 ' + Math.round(r.ms / 1000) + ' 秒（行情与排版由程序固定生成）');
@@ -191,6 +194,30 @@ const ContentView = {
     clearInterval(timer);
     this._keepAwake(false);
     this._setBusy($('#genMorning'), false);
+  },
+
+  /* 生成精美图片版晨报 */
+  _showImage() {
+    const b = this._lastBrief || {};
+    const dateStr = (b.date || todayStr()).replace(/-/g, '月').replace(/^(\d+月)(\d{2})/, '$1$2日');
+    let dataURL;
+    try {
+      if (b.data) {
+        dataURL = MorningImage.render({ markets: b.markets, news: b.data.news, focus: b.data.focus }, dateStr);
+      } else {
+        dataURL = MorningImage.renderPlain($('#morningOut').value || b.raw || '', dateStr);
+      }
+    } catch (e) {
+      toast('图片生成失败：' + (e.message || ''), 'warn');
+      return;
+    }
+    modal({
+      title: '晨报图片（长按可保存到相册）',
+      body: '<div style="text-align:center"><img src="' + dataURL + '" style="width:100%;border-radius:12px;border:1px solid var(--line)"></div>' +
+        '<div class="row-btns" style="margin-top:12px"><a class="btn wide" style="text-decoration:none" download="投顾晨报_' + (b.date || todayStr()) + '.png" href="' + dataURL + '">⬇ 下载图片</a></div>' +
+        '<div class="calc-note" style="margin-top:8px">iPhone：长按上方图片 → 「存储到照片」，即可发朋友圈/微信群。</div>',
+      actions: [{ text: '完成', cls: 'primary' }]
+    });
   },
 
   /* 生成期间保持屏幕常亮（支持则生效，避免锁屏中断） */
@@ -235,6 +262,11 @@ const ContentView = {
         $('#morningOut').value = d.text;
         $('#morningOutWrap').style.display = '';
         $('#morningActs').style.display = '';
+        this._lastBrief = {
+          markets: d.structured ? d.structured.markets : null,
+          data: d.structured ? { news: d.structured.news, focus: d.structured.focus } : null,
+          raw: d.text, date: d.date
+        };
         toast('已载入云端晨报');
         box.style.display = 'none';
       });
