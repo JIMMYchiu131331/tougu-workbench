@@ -301,6 +301,10 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--tx
 .check-row input { margin-top: 3px; accent-color: var(--pri); }
 
 /* ---------- 内容工坊 ---------- */
+.auto-line {
+  background: #EEF3FC; color: var(--pri); border-radius: 10px;
+  padding: 10px 12px; font-size: 12px; line-height: 1.6; margin-bottom: 12px;
+}
 .segment {
   display: flex; background: #E9EDF5; border-radius: 11px; padding: 3px;
   margin-bottom: 12px;
