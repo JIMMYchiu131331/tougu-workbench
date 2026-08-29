@@ -1,0 +1,15 @@
+{
+  "name": "投顾工作台",
+  "short_name": "投顾",
+  "description": "证券投顾的移动工作台：客户档案、适当性检查、AI晨报话术、行情速览、实用工具",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E3A85",
+  "theme_color": "#1546A0",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
