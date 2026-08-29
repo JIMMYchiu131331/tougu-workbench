@@ -77,12 +77,13 @@ const SettingsView = {
       '</div>';
 
     $('#aiSave').addEventListener('click', () => {
-      const ep = $('#aiEndpoint').value.trim();
+      const ep = ($('#aiEndpoint').value.trim() || '').replace(/\/+$/, ''); // 结尾多一个/会导致405
       const model = $('#aiModel').value.trim();
       const key = $('#aiKey').value.trim();
       if (!ep.startsWith('http')) { toast('接口地址要以 http 开头', 'warn'); return; }
       Store.db.settings.ai = { endpoint: ep, model: model || 'glm-4-flash', key };
       Store.save();
+      $('#aiEndpoint').value = ep;
       toast('已保存 AI 配置');
     });
 
