@@ -14,17 +14,35 @@ const AI = (() => {
     '输出要求：只输出话术正文本身（100-250字，可直接复制发送），不要任何标题、不要【话术正文】字样、不要注意事项、不要解释。';
 
   const SYSTEM_MORNING =
-    '你是证券公司投顾部最受欢迎的晨报主笔，产出会被投顾直接转发到客户群。' +
-    '你会收到自动抓取的最新行情数据和财经快讯，据此写一份固定格式的晨报。' +
-    '输出格式严格固定如下（标题日期用素材里给的日期）：\n' +
-    '【X月X日投顾晨报】\n' +
-    '一、隔夜外盘\n（美股三大指数与港股表现，1-3行，数据全部来自素材）\n' +
-    '二、昨日市场回顾\n（A股三大指数点位与涨跌幅、两市成交额，2-3句，可加一句盘面特征）\n' +
-    '三、要闻速递\n（从快讯中挑4-6条重要的，每条以"· "开头，一行一条，可注明【央行】【行业】等小标签）\n' +
-    '四、今日关注\n（结合要闻给1-3条当日值得留意的方向或事件，客观中立，不荐股不给点位）\n' +
-    '结尾固定一行：市场有风险，投资需谨慎。\n' +
-    '硬性要求：所有数字必须来自素材，禁止编造；某类数据缺失就如实跳过该句；快讯不够就少写几条；' +
-    '语言简洁专业、有温度、像行家在说话；总长350-550字。';
+    '你是证券公司投顾部的晨报主编。你会收到自动抓取的行情与财经快讯。' +
+    '排版由程序负责，你只负责产出内容：输出一个JSON对象，不要输出任何其他文字。格式：\n' +
+    '{"news":[{"tag":"央行","text":"一行要闻"}],"focus":[{"theme":"方向名","reason":"支撑理由一句话","targets":"相关ETF或龙头方向"}]}\n' +
+    '要求：\n' +
+    '1. news：从快讯里挑4-6条对投资者最重要的，每条text控制在40字内讲清楚，tag是分类小标签（如 央行/美股/行业/公司）；\n' +
+    '2. focus：1-3个当日值得关注的方向。每个方向必须有快讯依据，禁止凭空推荐；reason说清是哪条消息支撑的、为什么值得看；\n' +
+    '3. targets：写真实存在的ETF中文名（如 科创50ETF、芯片ETF、红利ETF、黄金ETF）或"XX方向龙头"；不确定的代码不要写；\n' +
+    '4. 禁止编造任何数据和收益率；不出现"保本""稳赚""保证收益"等承诺性表述；\n' +
+    '5. 全部用中文，讲人话，别写官话套话。';
+
+  /* 晨报专用：返回结构化内容 {news, focus}，供程序套模板排版 */
+  function genMorning(material) {
+    return chat([
+      { role: 'system', content: SYSTEM_MORNING },
+      { role: 'user', content: material }
+    ]).then(r => {
+      const m = r.text.match(/\{[\s\S]*\}/);
+      let obj = null;
+      if (m) {
+        try { obj = JSON.parse(m[0]); }
+        catch (e) { try { obj = JSON.parse(m[0].replace(/,\s*([}\]])/g, '$1')); } catch (e2) { /* 保留null */ } }
+      }
+      if (!obj || !Array.isArray(obj.news) || !Array.isArray(obj.focus)) {
+        // JSON解析失败：降级为原文输出，不让用户空手而归
+        return { ms: r.ms, data: null, raw: r.text };
+      }
+      return { ms: r.ms, data: obj };
+    });
+  }
 
   function parseResp(data) {
     const t = data && data.choices && data.choices[0] && data.choices[0].message
@@ -104,13 +122,6 @@ const AI = (() => {
       throw new Error('网络请求失败（可能当前网络无法直连大模型，或已被跨域拦截）。' +
         '建议：①检查手机网络后重试 ②到「设置」点「测试连接」看具体原因');
     }
-  }
-
-  function genMorning(news) {
-    return chat([
-      { role: 'system', content: SYSTEM_MORNING },
-      { role: 'user', content: '请根据以下今晨素材生成晨报：\n\n' + news }
-    ]);
   }
 
   function genScript(scenario, product, risk) {
