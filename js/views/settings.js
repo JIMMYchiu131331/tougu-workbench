@@ -12,14 +12,18 @@ const SettingsView = {
       '<div class="card">' +
       '<div class="field"><label>接口地址（OpenAI 兼容）</label>' +
       '<input id="aiEndpoint" type="text" value="' + esc(ai.endpoint) + '"></div>' +
-      '<div class="field"><label>模型名称</label>' +
-      '<input id="aiModel" type="text" value="' + esc(ai.model) + '" placeholder="glm-4-flash / glm-5.3-flash / deepseek-chat 等"></div>' +
+      '<div class="field"><label>模型名称（点输入框可选常用模型）</label>' +
+      '<input id="aiModel" type="text" value="' + esc(ai.model) + '" list="modelList" placeholder="glm-4-flash / glm-5.3-flash / deepseek-chat 等">' +
+      '<datalist id="modelList">' +
+      ['glm-5.3-flash', 'glm-4.5-flash', 'glm-4-flash', 'deepseek-chat', 'deepseek-reasoner']
+        .map(m => '<option value="' + m + '"></option>').join('') +
+      '</datalist></div>' +
       '<div class="field"><label>API Key</label>' +
       '<input id="aiKey" type="password" value="' + esc(ai.key) + '" placeholder="粘贴你的 Key，仅保存在本机"></div>' +
       '<div class="row-btns">' +
       '<button class="btn ghost wide" id="aiTest">测试连接</button>' +
       '<button class="btn wide" id="aiSave">保存</button></div>' +
-      '<div class="calc-note">智谱 BigModel 用户：到 open.bigmodel.cn 控制台 → API Keys 创建即可。DeepSeek/通义等 OpenAI 兼容接口改地址即可用。Key 只存在本机浏览器中。</div>' +
+      '<div class="calc-note">智谱 BigModel 用户：到 open.bigmodel.cn 控制台 → API Keys 创建即可。模型名可在其"模型广场"查最新（如 glm-5.3-flash 效果更好，glm-4-flash 免费）。DeepSeek/通义等 OpenAI 兼容接口改地址即可用。改完点"测试连接"验证。Key 只存在本机浏览器中。</div>' +
       '</div>' +
 
       '<div class="sec-title">数据管理</div>' +
