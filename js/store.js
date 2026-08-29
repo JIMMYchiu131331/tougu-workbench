@@ -18,36 +18,44 @@ const Store = (() => {
       },
       clients: [
         {
-          id: uid(), name: '王建国', phone: '', riskLevel: 'C5',
-          assets: 152, tags: ['老股民', '短线'],
-          holdings: '科技股为主，仓位约7成',
+          id: uid(), name: '王建国', phone: '', types: ['两融', 'ETF'], prefs: ['短线'],
+          assets: 152, tags: ['老股民'],
+          holdings: '两融仓位约7成，科技股为主',
           birthday: '', nextFollow: d(-1), lastContact: d(-3),
           note: '喜欢自己研究，关心题材和热点。',
           log: [{ date: d(-3), text: '电话沟通仓位，提示控制回撤。' }]
         },
         {
-          id: uid(), name: '陈志远', phone: '', riskLevel: 'C4',
-          assets: 86, tags: ['稳健增值', '基金'],
+          id: uid(), name: '陈志远', phone: '', types: ['公募', 'ETF'], prefs: ['波段', '稳健理财'],
+          assets: 86, tags: ['稳健增值'],
           holdings: '偏股混合60%、债券基金30%、现金10%',
           birthday: '', nextFollow: d(2), lastContact: d(-6),
           note: '目标年化8%左右，接受中等波动。',
           log: [{ date: d(-6), text: '建议定投持续，勿追高。' }]
         },
         {
-          id: uid(), name: '刘婷', phone: '', riskLevel: 'C3',
-          assets: 23, tags: ['上班族', '定投'],
+          id: uid(), name: '刘婷', phone: '', types: ['公募', '新客'], prefs: ['长线定投'],
+          assets: 23, tags: ['上班族'],
           holdings: '指数基金定投每月2000元',
           birthday: '', nextFollow: d(0), lastContact: d(-10),
           note: '平时忙，微信沟通为主。',
           log: [{ date: d(-10), text: '确认定投扣款正常。' }]
         },
         {
-          id: uid(), name: '赵秀兰', phone: '', riskLevel: 'C2',
+          id: uid(), name: '赵秀兰', phone: '', types: ['公募'], prefs: ['稳健理财'],
           assets: 45, tags: ['保守', '养老'],
           holdings: '货币基金+国债为主',
           birthday: '09-05', nextFollow: d(9), lastContact: d(-2),
           note: '重视本金安全，几乎不碰权益。',
           log: [{ date: d(-2), text: '介绍国债逆回购操作。' }]
+        },
+        {
+          id: uid(), name: '孙浩', phone: '', types: ['私募', '两融', '期权'], prefs: ['短线'],
+          assets: 480, tags: ['专业投资者'],
+          holdings: '私募产品200万，自有资金打板',
+          birthday: '', nextFollow: d(4), lastContact: d(-1),
+          note: '高净值老客户，关注私募额度和新品。',
+          log: [{ date: d(-1), text: '预约下周看私募新产品。' }]
         }
       ],
       scripts: [
