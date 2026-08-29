@@ -66,7 +66,7 @@ const ContentView = {
 
   _status(t) { const el = $('#morningStatus'); if (el) el.textContent = t; },
 
-  /* 组装素材：行情 + 快讯 + 用户补充 */
+  /* 组装素材：行情 + 快讯 + 用户补充；返回 {text, markets} */
   async _gatherMaterial() {
     const manual = $('#morningNews').value.trim();
     let markets = null, news = null, errors = [];
@@ -79,40 +79,102 @@ const ContentView = {
 
     const parts = [];
     parts.push('今天是 ' + longDate() + '。以下是自动抓取的最新素材：');
-
     if (markets) {
-      const fmt = q => q.price.toFixed(2) + '（' + (q.pct >= 0 ? '+' : '') + q.pct.toFixed(2) + '%）';
+      const fmt = q => q.name + ' ' + q.price.toFixed(2) + '（' + (q.pct >= 0 ? '+' : '') + q.pct.toFixed(2) + '%）';
       parts.push('【行情数据】');
-      if (markets.cn.length) parts.push('A股收盘：' + markets.cn.map(q => q.name + ' ' + fmt(q)).join('，') + '。');
+      if (markets.cn.length) parts.push('A股收盘：' + markets.cn.map(fmt).join('，') + '。');
       if (markets.turnoverYi != null) parts.push('沪深两市成交额约 ' + (markets.turnoverYi / 10000).toFixed(2) + ' 万亿元。');
-      if (markets.us.length) parts.push('美股最新：' + markets.us.map(q => q.name + ' ' + fmt(q)).join('，') + '。');
-      if (markets.hk.length) parts.push('港股：' + markets.hk.map(q => q.name + ' ' + fmt(q)).join('，') + '。');
+      if (markets.us.length) parts.push('美股最新：' + markets.us.map(fmt).join('，') + '。');
+      if (markets.hk.length) parts.push('港股：' + markets.hk.map(fmt).join('，') + '。');
     }
     if (news && news.length) {
-      parts.push('【最新财经快讯】（时间为今日/最近发出）');
-      news.slice(0, 25).forEach((n, i) => parts.push((i + 1) + '. ' + (n.time ? '[' + n.time + '] ' : '') + n.text));
+      parts.push('【最新财经快讯】');
+      news.slice(0, 25).forEach((n, i) => parts.push((i + 1) + '. ' + n.text));
     }
     if (manual) parts.push('【投顾补充（重要，优先采用）】\n' + manual);
     if (!markets && !news && !manual) {
       throw new Error('行情和快讯都抓取失败，且没有手动素材。请检查网络后重试，或把新闻粘贴到补充素材里再生成。');
     }
     if (errors.length) parts.push('（注意：' + errors.join('和') + '自动抓取失败，相关部分请勿凭空编写）');
-    return parts.join('\n');
+    return { text: parts.join('\n'), markets, news };
+  },
+
+  /* ---------- 晨报排版（程序负责，数字对齐固定） ---------- */
+  _dispWidth(s) {
+    let w = 0;
+    for (const ch of String(s)) w += ch.charCodeAt(0) > 255 ? 2 : 1;
+    return w;
+  },
+  _padName(s, w) {
+    s = String(s);
+    while (this._dispWidth(s) < w) s += '　'; // 全角空格补位
+    return s;
+  },
+  _marketLine(q, nameWidth) {
+    return this._padName(q.name, nameWidth) + ' ' + q.price.toFixed(2) + '  ' +
+      (q.pct >= 0 ? '+' : '') + q.pct.toFixed(2) + '%';
+  },
+  _renderMorning(markets, data, raw) {
+    const d = new Date();
+    const head = '📊 投顾晨报｜' + (d.getMonth() + 1) + '月' + d.getDate() + '日 周' + weekCN(d);
+    const SEP = '━━━━━━━━━━━━━━';
+    const out = [head, SEP];
+
+    if (markets && (markets.us.length || markets.hk.length)) {
+      out.push('🌍 隔夜外盘');
+      const usHk = markets.us.concat(markets.hk);
+      const w = Math.max(...usHk.map(q => this._dispWidth(q.name))) + 1;
+      usHk.forEach(q => out.push(this._marketLine(q, w)));
+      out.push('');
+    }
+    if (markets && markets.cn.length) {
+      out.push('🇨🇳 昨日A股');
+      const w = Math.max(...markets.cn.map(q => this._dispWidth(q.name))) + 1;
+      markets.cn.forEach(q => out.push(this._marketLine(q, w)));
+      if (markets.turnoverYi != null) out.push('两市成交额约 ' + (markets.turnoverYi / 10000).toFixed(2) + ' 万亿元');
+      out.push('');
+    }
+
+    if (data) {
+      if (data.news && data.news.length) {
+        out.push('📰 要闻速递');
+        data.news.forEach((n, i) => out.push((i + 1) + '. ' + (n.tag ? '【' + n.tag + '】' : '') + (n.text || '')));
+        out.push('');
+      }
+      if (data.focus && data.focus.length) {
+        out.push('🎯 今日关注');
+        data.focus.forEach(f => {
+          out.push('🔸 ' + (f.theme || '') + (f.reason ? '｜' + f.reason : ''));
+          if (f.targets) out.push('　　关注：' + f.targets);
+        });
+        out.push('');
+      }
+    } else {
+      // AI 未返回结构化内容时的降级：原样呈现
+      out.push('📝 今日内容');
+      out.push(raw || '');
+      out.push('');
+    }
+
+    out.push(SEP);
+    out.push('个人观点，仅供参考，不构成投资建议');
+    return out.join('\n');
   },
 
   async _genMorning() {
     if (this.busy) return;
     if (!Store.db.settings.ai.key) { this._aiError({ code: 'NO_KEY' }); return; }
     this._setBusy($('#genMorning'), true);
-    this._status('正在组装素材…');
+    let markets = null;
     try {
-      const material = await this._gatherMaterial();
-      this._status('素材就绪，AI 撰写中（约10-30秒）…');
-      const r = await AI.genMorning(material);
-      $('#morningOut').value = r.text;
+      const gathered = await this._gatherMaterial();
+      markets = gathered.markets;
+      this._status('素材就绪（行情✓' + (gathered.news ? ' 快讯' + gathered.news.length + '条✓' : '') + '），AI 撰写中…');
+      const r = await AI.genMorning(gathered.text);
+      $('#morningOut').value = this._renderMorning(markets, r.data, r.raw);
       $('#morningOutWrap').style.display = '';
       $('#morningActs').style.display = '';
-      this._status('生成完成 ✓ 用时 ' + Math.round(r.ms / 1000) + ' 秒');
+      this._status('生成完成 ✓ 用时 ' + Math.round(r.ms / 1000) + ' 秒（行情与排版由程序固定生成）');
       toast('晨报已生成');
     } catch (e) {
       this._status('');
