@@ -132,7 +132,7 @@ const ContentView = {
       out.push('');
     }
     if (markets && markets.cn.length) {
-      out.push('🇨🇳 昨日A股');
+      out.push('📈 昨日A股');
       const w = Math.max(...markets.cn.map(q => this._dispWidth(q.name))) + 1;
       markets.cn.forEach(q => out.push(this._marketLine(q, w)));
       if (markets.turnoverYi != null) out.push('两市成交额约 ' + (markets.turnoverYi / 10000).toFixed(2) + ' 万亿元');
@@ -199,7 +199,9 @@ const ContentView = {
   /* 生成精美图片版晨报 */
   _showImage() {
     const b = this._lastBrief || {};
-    const dateStr = (b.date || todayStr()).replace(/-/g, '月').replace(/^(\d+月)(\d{2})/, '$1$2日');
+    const parts = (b.date || todayStr()).split('-');
+    const dd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const dateStr = dd.getMonth() + 1 + '月' + dd.getDate() + '日 周' + weekCN(dd);
     let dataURL;
     try {
       if (b.data) {
