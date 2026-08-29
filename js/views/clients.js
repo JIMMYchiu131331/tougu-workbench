@@ -4,6 +4,7 @@
 const ClientsView = {
   title: '客户档案',
   pendingOpen: null,
+  pendingAdd: false,
   keyword: '',
   riskFilter: '',
 
@@ -36,6 +37,9 @@ const ClientsView = {
       this.pendingOpen = null;
       const c = Store.db.clients.find(x => x.id === id);
       if (c) this._detail(c.id);
+    } else if (this.pendingAdd) {
+      this.pendingAdd = false;
+      this._edit(null);
     }
   },
 
