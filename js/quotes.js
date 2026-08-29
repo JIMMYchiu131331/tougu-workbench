@@ -35,6 +35,7 @@ const Quotes = (() => {
       high: num(33),
       low: num(34),
       time: p[30] || '',
+      amount: num(37), // 成交额（万元）
       pe: num(39),
       mv: num(45)
     };
@@ -88,5 +89,43 @@ const Quotes = (() => {
     return r[code] || null;
   }
 
-  return { normalizeCode, getAll, lookup, REFRESH_MS };
+  /* ---------- 晨报专用：全球市场行情（绕过缓存，每次现抓） ---------- */
+  const MARKETS = {
+    cn: [['sh000001', '上证指数'], ['sz399001', '深证成指'], ['sz399006', '创业板指'], ['sh000300', '沪深300']],
+    us: [['usDJI', '道琼斯'], ['usIXIC', '纳斯达克'], ['usINX', '标普500']],
+    hk: [['hkHSI', '恒生指数'], ['hkHSTECH', '恒生科技指数']]
+  };
+
+  function fmtQ(q) {
+    if (!q || q.price == null) return null;
+    return { name: q.name, price: q.price, pct: q.pct, time: q.time };
+  }
+
+  /* 返回 {cn:[{name,price,pct}...], us:[...], hk:[...], turnoverYi, failed} */
+  async function fetchMarkets() {
+    const all = [].concat(MARKETS.cn, MARKETS.us, MARKETS.hk).map(x => x[0]).concat(['sz399106']);
+    const data = await fetchQuotes(all);
+    const pick = group => MARKETS[group]
+      .map(([code, fallback]) => {
+        const q = fmtQ(data[code]);
+        return q ? Object.assign({ name: q.name || fallback }, q) : null;
+      })
+      .filter(Boolean);
+    // 两市成交额：上证综指(沪市全部) + 深证综指(深市全部)，字段为万元
+    let turnoverYi = null;
+    const sh = data['sh000001'], sz = data['sz399106'];
+    if (sh && sh.amount != null && sz && sz.amount != null) {
+      turnoverYi = (sh.amount + sz.amount) / 10000;
+    }
+    return {
+      cn: pick('cn'),
+      us: pick('us'),
+      hk: pick('hk'),
+      turnoverYi,
+      cnTime: (data['sh000001'] || {}).time || '',
+      usTime: (data['usIXIC'] || {}).time || ''
+    };
+  }
+
+  return { normalizeCode, getAll, lookup, fetchMarkets, REFRESH_MS };
 })();
