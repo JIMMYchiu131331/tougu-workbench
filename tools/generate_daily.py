@@ -151,7 +151,7 @@ def render_brief(markets, data):
         out += [render_markets_line(q, w) for q in group]
         out.append("")
     if markets and markets["cn"]:
-        out.append("🇨🇳 昨日A股")
+        out.append("📈 昨日A股")
         w = max(disp_width(q["name"]) for q in markets["cn"]) + 1
         out += [render_markets_line(q, w) for q in markets["cn"]]
         if markets.get("turnoverYi") is not None:
