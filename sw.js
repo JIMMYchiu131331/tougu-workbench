@@ -1,7 +1,7 @@
 /* Service Worker：网络优先 + 离线回退缓存（保证升级即时生效，断网时仍可打开） */
 'use strict';
 
-const CACHE = 'tougu-v8';
+const CACHE = 'tougu-v9';
 const ASSETS = [
   './',
   './index.html',
