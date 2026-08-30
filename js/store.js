@@ -7,8 +7,14 @@ const Store = (() => {
   function seed() {
     const t = new Date();
     const d = n => { const x = new Date(t); x.setDate(x.getDate() + n); return dstr(x); };
+    const p1 = uid(), p2 = uid(), p3 = uid();
     return {
       meta: { v: 1, created: t.toISOString() },
+      products: [
+        { id: p1, name: 'XX中性一号', strategy: '市场中性', aum: 30, annReturn: 8.5, maxDD: 2.5, openDay: '每周一', lockup: '6个月', fee: '1%+20%', quota: '额度紧张', minBuy: 100, highlight: '严控回撤，类固收增强替代', note: '' },
+        { id: p2, name: 'XX指增500', strategy: '指数增强', aum: 50, annReturn: 15, maxDD: 8, openDay: '每月10号', lockup: '1年', fee: '1%+20%', quota: '有额度', minBuy: 100, highlight: '中证500增强，超额稳定', note: '' },
+        { id: p3, name: 'XX CTA二号', strategy: 'CTA', aum: 20, annReturn: 12, maxDD: 6, openDay: '每周三', lockup: '6个月', fee: '1.5%+20%', quota: '有额度', minBuy: 100, highlight: '与股市低相关，分散利器', note: '' }
+      ],
       settings: {
         ai: {
           endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
@@ -19,6 +25,7 @@ const Store = (() => {
       clients: [
         {
           id: uid(), name: '王建国', phone: '', types: ['两融', 'ETF'], prefs: ['短线'],
+          privateStatus: '已认证', products: [p1],
           assets: 152, tags: ['老股民'],
           holdings: '两融仓位约7成，科技股为主',
           birthday: '', nextFollow: d(-1), lastContact: d(-3),
@@ -51,6 +58,7 @@ const Store = (() => {
         },
         {
           id: uid(), name: '孙浩', phone: '', types: ['私募', '两融', '期权'], prefs: ['短线'],
+          privateStatus: '已认证', products: [p2, p3],
           assets: 480, tags: ['专业投资者'],
           holdings: '私募产品200万，自有资金打板',
           birthday: '', nextFollow: d(4), lastContact: d(-1),
@@ -88,6 +96,8 @@ const Store = (() => {
   /* 补齐缺失字段（兼容旧版本数据升级） */
   function fixup() {
     if (!db.saved) db.saved = [];
+    if (!db.products) db.products = [];
+    if (!db.scripts) db.scripts = [];
     if (!db.scripts) db.scripts = [];
     if (!db.watchlist) db.watchlist = [];
     if (!db.clients) db.clients = [];
