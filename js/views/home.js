@@ -39,7 +39,7 @@ const HomeView = {
       '<button class="quick-btn" data-nav="clients" data-act="add">➕<span>新增客户</span></button>' +
       '<button class="quick-btn" data-nav="content" data-tab="morning">📰<span>AI 晨报</span></button>' +
       '<button class="quick-btn" data-nav="content" data-tab="script">💬<span>生成话术</span></button>' +
-      '<button class="quick-btn" data-nav="content" data-tab="saved">📁<span>收藏库</span></button>' +
+      '<button class="quick-btn" data-nav="tools">🧰<span>私募工具</span></button>' +
       '</div>' +
 
       '<div class="page-disc">本工具仅供投顾个人工作辅助，内容请自行确认后再发送客户。</div>';
