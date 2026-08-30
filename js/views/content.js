@@ -73,13 +73,14 @@ const ContentView = {
   /* 组装素材：行情 + 快讯 + 用户补充；返回 {text, markets} */
   async _gatherMaterial() {
     const manual = $('#morningNews').value.trim();
-    let markets = null, news = null, errors = [];
+    let markets = null, news = null, rep = null, errors = [];
     this._status('正在抓取最新行情…');
     const pMarket = Quotes.fetchMarkets()
       .then(d => { markets = d; this._status('行情已抓到，正在抓取财经快讯…'); })
       .catch(() => { errors.push('行情'); this._status('行情抓取失败，正在抓取快讯…'); });
     const pNews = News.fetchNews(28).then(d => { news = d; }).catch(() => { errors.push('快讯'); });
-    await Promise.all([pMarket.catch(() => {}), pNews.catch(() => {})]);
+    const pRep = News.fetchReports().then(d => { rep = d; }).catch(() => {});
+    await Promise.all([pMarket.catch(() => {}), pNews.catch(() => {}), pRep.catch(() => {})]);
 
     const parts = [];
     parts.push('今天是 ' + longDate() + '。以下是自动抓取的最新素材：');
@@ -94,6 +95,13 @@ const ContentView = {
     if (news && news.length) {
       parts.push('【最新财经快讯】');
       news.slice(0, 25).forEach((n, i) => parts.push((i + 1) + '. ' + n.text));
+    }
+    if (rep && (rep.stocks || []).length) {
+      parts.push('【全市场券商研报风向（最近24小时，全市场共 ' + (rep.total || 0) + ' 篇个股研报）】');
+      parts.push('被机构集中覆盖的个股：' + rep.stocks.slice(0, 5).map(s => s.name + '(' + s.code + ') 获' + s.count + '家券商覆盖').join('、'));
+      const titles = rep.stocks.slice(0, 4).filter(s => s.title).map(s => '· ' + s.name + '：' + s.title + '（' + (s.orgs[0] || '机构') + '）');
+      if (titles.length) parts.push('代表性研报：\n' + titles.join('\n'));
+      if ((rep.industries || []).length) parts.push('行业研报热点：' + rep.industries.map(i => i.name).join('、'));
     }
     if (manual) parts.push('【投顾补充（重要，优先采用）】\n' + manual);
     if (!markets && !news && !manual) {
