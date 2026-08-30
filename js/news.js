@@ -31,5 +31,40 @@ const News = (() => {
     });
   }
 
-  return { fetchNews };
+  /* 全市场券商研报风向（东方财富研报接口，CORS 全开放，浏览器可直连）
+     返回 {total, stocks:[{name,code,count,orgs,title}], industries:[{name,count,title}]} */
+  function fetchReports() {
+    const end = todayStr();
+    const t = new Date(); t.setDate(t.getDate() - 1);
+    const start = dstr(t);
+    const H = { "Referer": "https://data.eastmoney.com/" };
+    const aggStocks = list => {
+      const agg = {};
+      (list || []).forEach(it => {
+        if (!it.stockCode || !it.stockName) return;
+        const e = agg[it.stockCode] = agg[it.stockCode] || { name: it.stockName, code: it.stockCode, count: 0, orgs: [], title: '' };
+        e.count++;
+        if (it.orgSName && e.orgs.indexOf(it.orgSName) < 0) e.orgs.push(it.orgSName);
+        if (!e.title && it.title) e.title = it.title;
+      });
+      return Object.keys(agg).map(k => agg[k]).sort((a, b) => b.count - a.count).slice(0, 6);
+    };
+    return Promise.all([
+      fetch('https://reportapi.eastmoney.com/report/list?pageNo=1&pageSize=100&code=*&industryCode=*&industry=*&rating=*&ratingChange=*&beginTime=' + start + '&endTime=' + end + '&qType=0', { headers: H }).then(r => r.json()).catch(() => ({})),
+      fetch('https://reportapi.eastmoney.com/report/list?pageNo=1&pageSize=60&code=*&industryCode=*&industry=*&rating=*&ratingChange=*&beginTime=' + start + '&endTime=' + end + '&qType=1', { headers: H }).then(r => r.json()).catch(() => ({}))
+    ]).then(rs => {
+      const stocks = aggStocks((rs[0].data || []));
+      const indAgg = {};
+      ((rs[1].data || [])).forEach(it => {
+        if (!it.industryName) return;
+        const e = indAgg[it.industryName] = indAgg[it.industryName] || { name: it.industryName, count: 0, title: '' };
+        e.count++;
+        if (!e.title && it.title) e.title = it.title;
+      });
+      const industries = Object.keys(indAgg).map(k => indAgg[k]).sort((a, b) => b.count - a.count).slice(0, 4);
+      return { total: rs[0].hits || 0, stocks: stocks, industries: industries };
+    });
+  }
+
+  return { fetchNews, fetchReports };
 })();
