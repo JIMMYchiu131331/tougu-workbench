@@ -38,6 +38,31 @@ function daysUntilBirthday(mmdd) {
   return Math.round((t - now) / 86400000);
 }
 
+/* 私募产品下一个开放日（支持 每周一~日 / 每月N号），返回 YYYY-MM-DD 或 null */
+function nextOpenDay(od) {
+  if (!od) return null;
+  od = String(od).trim();
+  let m;
+  if ((m = /^每周([一二三四五六日])$/.exec(od))) {
+    const target = '一二三四五六日'.indexOf(m[1]);
+    if (target < 0) return null;
+    const d = new Date();
+    const diff = (target - d.getDay() + 7) % 7;
+    const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+    return dstr(dt);
+  }
+  if ((m = /^每月(\d{1,2})[号日]?$/.exec(od))) {
+    const day = Number(m[1]);
+    const d = new Date();
+    let dt = new Date(d.getFullYear(), d.getMonth(), day);
+    if (dt.getTime() < new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) {
+      dt = new Date(d.getFullYear(), d.getMonth() + 1, day);
+    }
+    return dstr(dt);
+  }
+  return null;
+}
+
 function weekCN(d) { return '日一二三四五六'[d.getDay()]; }
 function longDate() {
   const d = new Date();
