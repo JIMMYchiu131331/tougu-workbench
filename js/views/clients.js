@@ -126,6 +126,8 @@ const ClientsView = {
       sec('私募合格投资者状态') +
       '<div class="chip-sel-row" data-name="privateStatus" data-single="1">' +
       ['已认证', '待核验', '未达标'].map(o => '<button type="button" class="fchip' + ((c ? c.privateStatus : '') === o ? ' active' : '') + '" data-v="' + o + '">' + o + '</button>').join('') + '</div>' +
+      ((Store.db.products || []).length ? sec('持有私募产品（多选）') +
+        this._chipRow('holdProducts', (Store.db.products || []).map(p => p.name), (Store.db.products || []).filter(p => (c ? c.products || [] : []).indexOf(p.id) > -1).map(p => p.name)) : '') +
       sec('投资偏好（多选，决定沟通风格）') +
       this._chipRow('prefs', this.PREFS, c ? c.prefs : []) +
       sec('资产与持仓') +
@@ -148,6 +150,10 @@ const ClientsView = {
       types: this._collectChips('types'),
       prefs: this._collectChips('prefs'),
       privateStatus: this._collectChips('privateStatus')[0] || '',
+      products: (function () {
+        const names = this._collectChips('holdProducts');
+        return (Store.db.products || []).filter(p => names.indexOf(p.name) > -1).map(p => p.id);
+      }).call(this),
       assets: fieldVal(document, 'assets') ? Number(fieldVal(document, 'assets')) : null,
       birthday: fieldVal(document, 'birthday'),
       nextFollow: fieldVal(document, 'nextFollow'),
@@ -201,6 +207,11 @@ const ClientsView = {
       '<div><span class="dg-k">生日</span>' + (c.birthday ? esc(c.birthday) : '--') + '</div>' +
       '<div><span class="dg-k">下次跟进</span>' + (c.nextFollow ? esc(c.nextFollow) : '--') + '</div>' +
       '<div><span class="dg-k">最近联系</span>' + (c.lastContact ? esc(c.lastContact) : '--') + '</div></div>' +
+      '<div class="dg-block"><b>持有私募产品</b>' +
+      ((c.products || []).length ? esc((c.products || []).map(pid => {
+        const p = (Store.db.products || []).find(x => x.id === pid);
+        return p ? p.name : '';
+      }).filter(Boolean).join('、') || '暂无') : '暂无') + '</div>' +
       '<div class="dg-block"><b>持仓概况</b>' + esc(c.holdings || '暂无') + '</div>' +
       '<div class="dg-block"><b>备注</b>' + esc(c.note || '暂无') + '</div>' +
       '<div class="dg-block"><b>跟进记录</b>' +
