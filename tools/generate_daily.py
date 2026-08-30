@@ -32,7 +32,7 @@ SYSTEM_MORNING = (
     "要求：\n"
     "1. news：从快讯里挑4-6条对投资者最重要的，每条text控制在40字内讲清楚，tag是分类小标签（如 央行/美股/行业/公司）；\n"
     "2. focus：1-3个当日值得关注的方向。每个方向必须有快讯依据，禁止凭空推荐；reason说清是哪条消息支撑的、为什么值得看；\n"
-    "3. targets：格式必须为「名称(代码)」，多个用顿号分隔。ETF优先从下面参考表中选（都是同类里规模最大的）：\n"
+    "3. targets：格式必须为「名称(代码)」，多个用顿号分隔。今日关注必须优先参考素材中【全市场券商研报风向】：被机构集中覆盖的个股与行业研报热点就是全市场投研共识，优先纳入（个股直接带代码，行业方向配参考表中对应ETF）；其余方向从下面ETF参考表中选（都是同类里规模最大的）：\n"
     "   大盘：沪深300ETF(510300)、上证50ETF(510050)、中证500ETF(510500)、创业板ETF(159915)、科创50ETF(588000)\n"
     "   科技：半导体ETF(512480)、芯片ETF(159995)、人工智能ETF(515070)、游戏ETF(159869)\n"
     "   金融：券商ETF(512000)、银行ETF(512800)\n"
@@ -102,7 +102,69 @@ def fetch_news(count=28):
     return items
 
 
-def build_material(markets, news, manual=""):
+def fetch_reports():
+    """全市场券商研报：最近24小时个股研报 + 行业研报，聚合机构覆盖度"""
+    now = datetime.now()
+    start = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    end = now.strftime("%Y-%m-%d")
+    out = {"stocks": [], "industries": [], "total": 0}
+    headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://data.eastmoney.com/"}
+    try:
+        u = ("https://reportapi.eastmoney.com/report/list?pageNo=1&pageSize=100&code=*&industryCode=*"
+             "&industry=*&rating=*&ratingChange=*&beginTime=%s&endTime=%s&qType=0" % (start, end))
+        d = json.loads(http_get(u, headers=headers))
+        out["total"] = d.get("hits") or 0
+        agg = {}
+        for it in d.get("data") or []:
+            code, name = it.get("stockCode"), it.get("stockName")
+            if not code or not name:
+                continue
+            e = agg.setdefault(code, {"name": name, "code": code, "count": 0, "orgs": [], "title": ""})
+            e["count"] += 1
+            org = it.get("orgSName")
+            if org and org not in e["orgs"]:
+                e["orgs"].append(org)
+            if not e["title"] and it.get("title"):
+                e["title"] = it["title"]
+        out["stocks"] = sorted(agg.values(), key=lambda x: -x["count"])[:6]
+    except Exception as e:
+        print("      个股研报抓取失败:", str(e)[:80])
+    try:
+        u = ("https://reportapi.eastmoney.com/report/list?pageNo=1&pageSize=60&code=*&industryCode=*"
+             "&industry=*&rating=*&ratingChange=*&beginTime=%s&endTime=%s&qType=1" % (start, end))
+        d = json.loads(http_get(u, headers=headers))
+        agg = {}
+        for it in d.get("data") or []:
+            ind = it.get("industryName")
+            if not ind:
+                continue
+            e = agg.setdefault(ind, {"name": ind, "count": 0, "title": ""})
+            e["count"] += 1
+            if not e["title"] and it.get("title"):
+                e["title"] = it["title"]
+        out["industries"] = sorted(agg.values(), key=lambda x: -x["count"])[:4]
+    except Exception as e:
+        print("      行业研报抓取失败:", str(e)[:80])
+    return out
+
+
+def reports_material(rep):
+    if not rep or not (rep.get("stocks") or rep.get("industries")):
+        return ""
+    parts = ["【全市场券商研报风向（最近24小时，全市场共 %d 篇个股研报）】" % (rep.get("total") or 0)]
+    if rep.get("stocks"):
+        names = ["%s(%s) 获%d家券商覆盖" % (s["name"], s["code"], s["count"]) for s in rep["stocks"][:5]]
+        parts.append("被机构集中覆盖的个股：" + "、".join(names))
+        titles = ["· %s：%s（%s）" % (s["name"], s["title"], (s.get("orgs") or ["机构"])[0])
+                  for s in rep["stocks"][:4] if s.get("title")]
+        if titles:
+            parts.append("代表性研报：\n" + "\n".join(titles))
+    if rep.get("industries"):
+        parts.append("行业研报热点：" + "、".join(i["name"] for i in rep["industries"]))
+    return "\n".join(parts)
+
+
+def build_material(markets, news, rep=None, manual=""):
     parts = ["今天是 %s。以下是自动抓取的最新素材：" % datetime.now(CN_TZ).strftime("%Y年%m月%d日 %A").replace("Monday", "星期一").replace("Tuesday", "星期二").replace("Wednesday", "星期三").replace("Thursday", "星期四").replace("Friday", "星期五").replace("Saturday", "星期六").replace("Sunday", "星期日")]
     if markets:
         def fmt(q):
@@ -122,6 +184,9 @@ def build_material(markets, news, manual=""):
             parts.append("%d. %s" % (i, t))
     if manual:
         parts.append("【投顾补充（重要，优先采用）】\n" + manual)
+    rep_text = reports_material(rep)
+    if rep_text:
+        parts.append(rep_text)
     return "\n".join(parts)
 
 
@@ -217,7 +282,10 @@ def main():
     print("[2/4] 抓取快讯...")
     news = fetch_news()
     print("      %d 条" % len(news))
-    material = build_material(markets, news)
+    print("[2.5/4] 抓取全市场券商研报风向...")
+    rep = fetch_reports()
+    print("      个股研报 %d 篇，集中覆盖 %d 只，行业热点 %d 个" % (rep.get("total") or 0, len(rep.get("stocks") or []), len(rep.get("industries") or [])))
+    material = build_material(markets, news, rep)
 
     data = None
     if key:
