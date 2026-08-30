@@ -123,6 +123,9 @@ const ClientsView = {
       f('nextFollow', '下次跟进', 'date', c ? c.nextFollow : '') + '</div>' +
       sec('业务类型（多选，用于分类筛选和精准营销）') +
       this._chipRow('types', this.TYPES, c ? c.types : []) +
+      sec('私募合格投资者状态') +
+      '<div class="chip-sel-row" data-name="privateStatus" data-single="1">' +
+      ['已认证', '待核验', '未达标'].map(o => '<button type="button" class="fchip' + ((c ? c.privateStatus : '') === o ? ' active' : '') + '" data-v="' + o + '">' + o + '</button>').join('') + '</div>' +
       sec('投资偏好（多选，决定沟通风格）') +
       this._chipRow('prefs', this.PREFS, c ? c.prefs : []) +
       sec('资产与持仓') +
@@ -144,6 +147,7 @@ const ClientsView = {
       phone: fieldVal(document, 'phone'),
       types: this._collectChips('types'),
       prefs: this._collectChips('prefs'),
+      privateStatus: this._collectChips('privateStatus')[0] || '',
       assets: fieldVal(document, 'assets') ? Number(fieldVal(document, 'assets')) : null,
       birthday: fieldVal(document, 'birthday'),
       nextFollow: fieldVal(document, 'nextFollow'),
@@ -174,7 +178,13 @@ const ClientsView = {
         { text: '保存', cls: 'primary', onClick: close => this._saveFromForm(close, id) }
       ]
     });
-    $$('.fchip', m.overlay).forEach(b => b.addEventListener('click', () => b.classList.toggle('active')));
+    $$('.fchip', m.overlay).forEach(b => b.addEventListener('click', () => {
+      const row = b.closest('.chip-sel-row');
+      if (row && row.dataset.single) {
+        $$('.fchip.active', row).forEach(x => { if (x !== b) x.classList.remove('active'); });
+        b.classList.toggle('active');
+      } else b.classList.toggle('active');
+    }));
   },
 
   _detail(id) {
